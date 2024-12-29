@@ -120,7 +120,7 @@ def start_gui():
         threading.Thread(target=run_scan_thread, daemon=True).start()
 
     root = tk.Tk()
-    root.title("Advanced Network Vulnerability Scanner")
+    root.title("Vuln.scan")
 
     tk.Label(root, text="Targets (comma-separated):").pack()
     target_entry = tk.Entry(root, width=50)
