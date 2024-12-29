@@ -1,5 +1,5 @@
-| Tasks       |
-|-------------|
-| Nmap        |
-| python-nmap |
-| Tkinter     |
+| Requirements |
+|--------------|
+| Nmap         |
+| python-nmap  |
+| Tkinter      |
