@@ -7,7 +7,6 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 import nmap
-import requests
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,36 +19,32 @@ def check_dependencies():
         messagebox.showerror("Error", "nmap module is not installed. Please install it using 'pip install python-nmap'.")
         exit()
 
-    try:
-        import requests
-    except ImportError:
-        messagebox.showerror("Error", "requests module is not installed. Please install it using 'pip install requests'.")
-        exit()
+# Sample local vulnerability data (normally would be read from a file)
+vulnerability_db = {
+    "Apache": {
+        "2.4.1": ["CVE-2020-1234", "CVE-2020-5678"],
+        "2.4.3": ["CVE-2019-1234"]
+    },
+    "OpenSSL": {
+        "1.1.1": ["CVE-2019-1559"],
+        "1.0.2": ["CVE-2016-2108"]
+    }
+}
+
+# Function to check for vulnerabilities with local database
+def check_vulnerabilities_locally(service, version):
+    # Check if service is in the vulnerability database
+    if service in vulnerability_db:
+        # Check if the version is vulnerable
+        if version in vulnerability_db[service]:
+            return vulnerability_db[service][version]
+    return []
 
 # Function to save results to a file
 def save_results_to_file(results, filename="scan_results.json"):
     with open(filename, "w") as file:
         json.dump(results, file, indent=4)
     logging.info(f"Results saved to {filename}")
-
-# Function to check for vulnerabilities with retry logic
-def check_vulnerabilities(service, version, retries=3):
-    api_urls = [
-        f"https://vulnerabilitydb.example.com/api/v1/{service}/{version}",
-        f"https://cveapi.example.com/v2/{service}/{version}"
-    ]
-    vulnerabilities = []
-    for api_url in api_urls:
-        for _ in range(retries):
-            try:
-                response = requests.get(api_url, timeout=10)
-                if response.status_code == 200:
-                    vulnerabilities.extend(response.json())
-                    break
-            except requests.RequestException as e:
-                logging.error(f"Error fetching vulnerabilities from {api_url}: {e}")
-                time.sleep(2)  # wait before retrying
-    return vulnerabilities
 
 # Function to perform a scan
 def perform_scan(target, scan_type="-A"):
@@ -61,7 +56,7 @@ def perform_scan(target, scan_type="-A"):
             for port in results[proto].keys():
                 service = results[proto][port].get('name', 'unknown')
                 version = results[proto][port].get('version', 'unknown')
-                vulnerabilities = check_vulnerabilities(service, version)
+                vulnerabilities = check_vulnerabilities_locally(service, version)
                 results[proto][port]['vulnerabilities'] = vulnerabilities
         return results
     except Exception as e:
