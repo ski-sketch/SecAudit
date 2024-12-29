@@ -1,3 +1,0 @@
-Nmap
-python-nmap
-Tkinter
