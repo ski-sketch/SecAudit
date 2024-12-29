@@ -31,20 +31,14 @@ vulnerability_db = {
     }
 }
 
-# Function to check for vulnerabilities with local database
+# Function to check for vulnerabilities with local database (returns True/False)
 def check_vulnerabilities_locally(service, version):
     # Check if service is in the vulnerability database
     if service in vulnerability_db:
         # Check if the version is vulnerable
         if version in vulnerability_db[service]:
-            return vulnerability_db[service][version]
-    return []
-
-# Function to save results to a file
-def save_results_to_file(results, filename="scan_results.json"):
-    with open(filename, "w") as file:
-        json.dump(results, file, indent=4)
-    logging.info(f"Results saved to {filename}")
+            return True  # Vulnerability found
+    return False  # No vulnerability found
 
 # Function to perform a scan
 def perform_scan(target, scan_type="-A"):
@@ -52,13 +46,18 @@ def perform_scan(target, scan_type="-A"):
         nm = nmap.PortScanner()
         nm.scan(target, arguments=scan_type)
         results = nm[target]
+        vulnerability_found = False
+
         for proto in results.all_protocols():
             for port in results[proto].keys():
                 service = results[proto][port].get('name', 'unknown')
                 version = results[proto][port].get('version', 'unknown')
                 vulnerabilities = check_vulnerabilities_locally(service, version)
-                results[proto][port]['vulnerabilities'] = vulnerabilities
-        return results
+                if vulnerabilities:
+                    vulnerability_found = True  # If any vulnerability is found
+                    break  # No need to check further if a vulnerability is found
+
+        return {"target": target, "vulnerable": vulnerability_found}
     except Exception as e:
         logging.error(f"Error scanning target {target}: {e}")
         return {"error": str(e)}
@@ -89,7 +88,11 @@ def start_gui():
 
     def display_results(results):
         for target, result in results.items():
-            results_text.insert(tk.END, f"Scan results for {target}:\n{json.dumps(result, indent=2)}\n\n")
+            if "error" in result:
+                results_text.insert(tk.END, f"Error scanning {target}: {result['error']}\n\n")
+            else:
+                vuln_status = "Vulnerable" if result["vulnerable"] else "No Vulnerability Found"
+                results_text.insert(tk.END, f"Scan result for {target}: {vuln_status}\n\n")
         results_text.yview(tk.END)
 
     def start_scan():
@@ -107,10 +110,9 @@ def start_gui():
         def run_scan_thread():
             update_progress()
             results = run_scan(target_list, scan_type)
-            save_results_to_file(results)
             finish_progress()
             display_results(results)
-            messagebox.showinfo("Scan Complete", "Scan results saved to scan_results.json")
+            messagebox.showinfo("Scan Complete", "Scan results are displayed.")
 
         threading.Thread(target=run_scan_thread, daemon=True).start()
 
