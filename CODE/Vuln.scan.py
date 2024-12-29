@@ -31,14 +31,20 @@ vulnerability_db = {
     }
 }
 
-# Function to check for vulnerabilities with local database (returns True/False)
+# Function to check for vulnerabilities with local database (returns a list of CVEs)
 def check_vulnerabilities_locally(service, version):
     # Check if service is in the vulnerability database
     if service in vulnerability_db:
-        # Check if the version is vulnerable
+        # Check if the version is vulnerable and return the CVEs
         if version in vulnerability_db[service]:
-            return True  # Vulnerability found
-    return False  # No vulnerability found
+            return vulnerability_db[service][version]  # Return a list of CVEs
+    return []  # No vulnerabilities found
+
+# Function to save results to a file
+def save_results_to_file(results, filename="scan_results.json"):
+    with open(filename, "w") as file:
+        json.dump(results, file, indent=4)
+    logging.info(f"Results saved to {filename}")
 
 # Function to perform a scan
 def perform_scan(target, scan_type="-A"):
@@ -46,7 +52,7 @@ def perform_scan(target, scan_type="-A"):
         nm = nmap.PortScanner()
         nm.scan(target, arguments=scan_type)
         results = nm[target]
-        vulnerability_found = False
+        vulnerabilities_found = []
 
         for proto in results.all_protocols():
             for port in results[proto].keys():
@@ -54,10 +60,15 @@ def perform_scan(target, scan_type="-A"):
                 version = results[proto][port].get('version', 'unknown')
                 vulnerabilities = check_vulnerabilities_locally(service, version)
                 if vulnerabilities:
-                    vulnerability_found = True  # If any vulnerability is found
-                    break  # No need to check further if a vulnerability is found
+                    vulnerabilities_found.append({
+                        "port": port,
+                        "service": service,
+                        "version": version,
+                        "vulnerabilities": vulnerabilities
+                    })
 
-        return {"target": target, "vulnerable": vulnerability_found}
+        # Return result with vulnerabilities if any, otherwise return no vulnerabilities
+        return {"target": target, "vulnerabilities": vulnerabilities_found if vulnerabilities_found else None}
     except Exception as e:
         logging.error(f"Error scanning target {target}: {e}")
         return {"error": str(e)}
@@ -91,8 +102,15 @@ def start_gui():
             if "error" in result:
                 results_text.insert(tk.END, f"Error scanning {target}: {result['error']}\n\n")
             else:
-                vuln_status = "Vulnerable" if result["vulnerable"] else "No Vulnerability Found"
-                results_text.insert(tk.END, f"Scan result for {target}: {vuln_status}\n\n")
+                if result["vulnerabilities"]:
+                    results_text.insert(tk.END, f"Scan result for {target}:\n")
+                    for vuln in result["vulnerabilities"]:
+                        vuln_status = f"Vulnerability found on port {vuln['port']} (Service: {vuln['service']}, Version: {vuln['version']}):\n"
+                        for cve in vuln["vulnerabilities"]:
+                            vuln_status += f"    - {cve}\n"
+                        results_text.insert(tk.END, vuln_status + "\n")
+                else:
+                    results_text.insert(tk.END, f"Scan result for {target}: No Vulnerabilities Found\n\n")
         results_text.yview(tk.END)
 
     def start_scan():
@@ -110,9 +128,10 @@ def start_gui():
         def run_scan_thread():
             update_progress()
             results = run_scan(target_list, scan_type)
+            save_results_to_file(results)  # Save the results to a file
             finish_progress()
             display_results(results)
-            messagebox.showinfo("Scan Complete", "Scan results are displayed.")
+            messagebox.showinfo("Scan Complete", "Scan results are displayed and saved to scan_results.json.")
 
         threading.Thread(target=run_scan_thread, daemon=True).start()
 
