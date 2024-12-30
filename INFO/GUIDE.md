@@ -1,6 +1,7 @@
 # How do I use each of these tools?
 
-##Vuln.Scan
+##  Vuln.Scan 
+
 How to Use Vuln.Scan?
 
 Ensure you have all the required dependencies installed. You can install the required Python libraries using:  
@@ -14,7 +15,7 @@ Use the Website: You can also use the Vuln.Scan tool through the website interfa
 Check Results: The scan results will be saved to a file named scan_results.json in the same directory. Open this file to view the detected vulnerabilities.  
 That's it! The script will handle scanning the specified targets, checking for vulnerabilities, and saving the results.  |
 
-##Sec.Monitor
+##  Sec.Monitor 
 
 How to use Sec.Monitor:
 
