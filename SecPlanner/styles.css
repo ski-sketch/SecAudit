@@ -1,0 +1,88 @@
+// backend.js
+
+document.getElementById('start-scan').addEventListener('click', () => {
+  const statusElement = document.getElementById('scan-status');
+  statusElement.textContent = 'Status: Scanning...';
+  statusElement.style.color = 'orange';
+
+  // Send POST request to backend to start the scan
+  fetch('http://localhost:5000/start-scan', {
+    method: 'POST',
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.message === 'Scan started') {
+      // Simulate scan completion after a few seconds
+      setTimeout(() => {
+        statusElement.textContent = 'Status: Scan Complete';
+        statusElement.style.color = 'green';
+      }, 3000); // Adjust to your scan time
+    } else {
+      statusElement.textContent = 'Status: Error';
+      statusElement.style.color = 'red';
+    }
+  })
+  .catch(error => {
+    console.error('Error starting scan:', error);
+    statusElement.textContent = 'Status: Error';
+    statusElement.style.color = 'red';
+  });
+});/* Global Styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+}
+.container {
+  width: 80%;
+  margin: 0 auto;
+  padding: 20px;
+}
+header {
+  background-color: #333;
+  color: white;
+  padding: 20px 0;
+  text-align: center;
+}
+footer {
+  background-color: #333;
+  color: white;
+  padding: 10px 0;
+  text-align: center;
+}
+
+/* Dashboard Section */
+.dashboard {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+h1, h2 {
+  margin: 0;
+  padding-bottom: 10px;
+}
+p {
+  font-size: 1.2em;
+}
+.btn {
+  padding: 10px 20px;
+  background-color: #007BFF;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+.btn:hover {
+  background-color: #0056b3;
+}
+
+/* Status Text */
+#scan-status {
+  margin-top: 10px;
+  font-weight: bold;
+  font-size: 1.1em;
+}
