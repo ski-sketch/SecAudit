@@ -1,65 +1,77 @@
-import concurrent.futures
 import json
 import logging
 import nmap
+import concurrent.futures
 
-# Logging setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 
-# Expanded local vulnerability data
 vulnerability_db = {
-    "Apache": {
-        "2.4.1": ["CVE-2020-1234", "CVE-2020-5678"],
-        "2.4.3": ["CVE-2019-1234"]
-    },
-    "OpenSSL": {
-        "1.1.1": ["CVE-2019-1559"],
-        "1.0.2": ["CVE-2016-2108"]
+    "apache": {
+        "2.4.49": ["CVE-2021-41773", "CVE-2021-42013"],
+        "2.4.48": ["CVE-2021-39275"],
+        "2.4.46": ["CVE-2020-9490", "CVE-2020-11984"]
     },
     "nginx": {
-        "1.18.0": ["CVE-2021-23017"],
-        "1.19.0": ["CVE-2021-23017"]
+        "1.21.1": ["CVE-2021-23017"],
+        "1.20.1": ["CVE-2021-23017"],
+        "1.19.10": ["CVE-2021-23017"]
     },
-    "MySQL": {
-        "5.7": ["CVE-2019-2974"],
-        "8.0": ["CVE-2020-14812"]
+    "openssh": {
+        "8.4": ["CVE-2021-28041"],
+        "8.3": ["CVE-2020-15778"],
+        "7.9": ["CVE-2018-15473"]
     },
-    "PostgreSQL": {
-        "12.3": ["CVE-2020-25695"],
-        "13.1": ["CVE-2020-25695"]
+    "mysql": {
+        "8.0.25": ["CVE-2021-2307"],
+        "5.7.34": ["CVE-2021-2307"],
+        "5.6.51": ["CVE-2021-2307"]
     },
-    "SSH": {
-        "7.4": ["CVE-2018-15473"],
-        "8.0": ["CVE-2019-6111"]
+    "postgresql": {
+        "13.3": ["CVE-2021-32027"],
+        "12.7": ["CVE-2021-32027"],
+        "11.12": ["CVE-2021-32027"]
     },
-    "Tomcat": {
-        "9.0.0": ["CVE-2020-9484"],
-        "10.0.0": ["CVE-2021-30640"]
+    "php": {
+        "7.4.21": ["CVE-2021-21703"],
+        "7.3.28": ["CVE-2021-21703"],
+        "7.2.34": ["CVE-2020-7069"]
     },
-    "Redis": {
-        "5.0": ["CVE-2020-14147"],
-        "6.0": ["CVE-2021-21309"]
+    "python": {
+        "3.9.5": ["CVE-2021-3177"],
+        "3.8.10": ["CVE-2021-3177"],
+        "3.7.10": ["CVE-2021-3177"]
     },
-    "MongoDB": {
-        "4.2": ["CVE-2020-7921"],
-        "4.4": ["CVE-2021-20329"]
+    "java": {
+        "8u291": ["CVE-2021-2161"],
+        "11.0.11": ["CVE-2021-2161"],
+        "16.0.1": ["CVE-2021-2161"]
+    },
+    "nodejs": {
+        "14.17.0": ["CVE-2021-22918"],
+        "12.22.1": ["CVE-2021-22918"],
+        "10.24.1": ["CVE-2021-22918"]
+    },
+    "docker": {
+        "20.10.7": ["CVE-2021-21284"],
+        "19.03.15": ["CVE-2020-15257"],
+        "18.09.9": ["CVE-2019-13139"]
     }
 }
 
-# Function to check for vulnerabilities with local database (returns a list of CVEs)
 def check_vulnerabilities_locally(service, version):
     if service in vulnerability_db:
         if version in vulnerability_db[service]:
             return vulnerability_db[service][version]
     return []
 
-# Function to save results to a file
 def save_results_to_file(results, filename="scan_results.json"):
-    with open(filename, "w") as file:
-        json.dump(results, file, indent=4)
-    logging.info(f"Results saved to {filename}")
+    try:
+        with open(filename, "w") as file:
+            json.dump(results, file, indent=4)
+        logging.info(f"Results saved to {filename}")
+    except Exception as e:
+        logging.error(f"Error saving results to file: {e}")
 
-# Function to perform a scan
 def perform_scan(target, scan_type):
     try:
         nm = nmap.PortScanner()
@@ -85,7 +97,6 @@ def perform_scan(target, scan_type):
         logging.error(f"Error scanning target {target}: {e}")
         return {"error": str(e)}
 
-# Function to run the scan with multithreading
 def run_scan(targets, scan_types, max_workers=10):
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
