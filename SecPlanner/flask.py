@@ -12,5 +12,14 @@ def start_scan():
     except Exception as e:
         return jsonify({"error": f"Error starting scan: {str(e)}"}), 500
 
+@app.route('/start-monitor', methods=['POST'])
+def start_monitor():
+    try:
+        # Run Sec.Monitor.py script
+        result = run(['python3', 'Sec.Monitor.py'], capture_output=True, text=True)
+        return jsonify({"message": "Monitor started", "output": result.stdout})
+    except Exception as e:
+        return jsonify({"error": f"Error starting monitor: {str(e)}"}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
