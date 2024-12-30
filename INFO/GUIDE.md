@@ -3,7 +3,7 @@
 ##Vuln.Scan
 How to Use Vuln.Scan?
 
-Install Dependencies: Ensure you have all the required dependencies installed. You can install the required Python libraries using:  
+Ensure you have all the required dependencies installed. You can install the required Python libraries using:  
 pip install -r requirements.txt
 
 Run the Script: Execute the Vuln.Scan.py script with the desired targets and scan types. For example:  
@@ -18,7 +18,7 @@ That's it! The script will handle scanning the specified targets, checking for v
 
 How to use Sec.Monitor:
 
-Install Dependencies: Ensure you have all the required dependencies installed. You can install the required Python libraries using:  
+Ensure you have all the required dependencies installed. You can install the required Python libraries using:  
 pip install -r requirements.txt 
 
 Edit Configuration: Edit the config.ini file to specify your monitoring parameters. Ensure the file is correctly configured before running the script.  
