@@ -8,6 +8,7 @@
 | Tasks                  |
 |------------------------|
 | Vuln.Scan  ✅           |
+| SecPlanner ✅           |
 | Vuln.Exploit  ✅        |
 | Patch.Manager  ✅       |
 | Log.Analyzer  ❌        |

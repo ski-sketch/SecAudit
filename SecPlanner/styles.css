@@ -1,33 +1,4 @@
-// backend.js
-
-document.getElementById('start-scan').addEventListener('click', () => {
-  const statusElement = document.getElementById('scan-status');
-  statusElement.textContent = 'Status: Scanning...';
-  statusElement.style.color = 'orange';
-
-  // Send POST request to backend to start the scan
-  fetch('http://localhost:5000/start-scan', {
-    method: 'POST',
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.message === 'Scan started') {
-      // Simulate scan completion after a few seconds
-      setTimeout(() => {
-        statusElement.textContent = 'Status: Scan Complete';
-        statusElement.style.color = 'green';
-      }, 3000); // Adjust to your scan time
-    } else {
-      statusElement.textContent = 'Status: Error';
-      statusElement.style.color = 'red';
-    }
-  })
-  .catch(error => {
-    console.error('Error starting scan:', error);
-    statusElement.textContent = 'Status: Error';
-    statusElement.style.color = 'red';
-  });
-});/* Global Styles */
+/* Global Styles */
 body {
   font-family: Arial, sans-serif;
   margin: 0;
@@ -40,13 +11,13 @@ body {
   padding: 20px;
 }
 header {
-  background-color: #333;
+  background-color: #007BFF;
   color: white;
   padding: 20px 0;
   text-align: center;
 }
 footer {
-  background-color: #333;
+  background-color: #007BFF;
   color: white;
   padding: 10px 0;
   text-align: center;

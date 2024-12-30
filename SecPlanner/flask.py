@@ -8,9 +8,9 @@ def start_scan():
     try:
         # Run Vuln.Scan.py script
         result = run(['python3', 'Vuln.Scan.py'], capture_output=True, text=True)
-        return jsonify({"message": "Scan started", "output": result.stdout}), 200
+        return jsonify({"message": "Scan started", "output": result.stdout})
     except Exception as e:
-        return jsonify({"message": "Error starting scan", "error": str(e)}), 500
+        return jsonify({"error": f"Error starting scan: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)
