@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from aiohttp import ClientSession
 from cryptography.fernet import Fernet
+from Vuln.Scan import run_scan, save_results_to_file  # Importing functions from Vuln.Scan
 
 logging.basicConfig(level=logging.INFO)
 
@@ -65,15 +66,12 @@ async def send_email(subject, body):
 async def monitor():
     while not shutdown_event.is_set():
         try:
-            async with ClientSession() as session:
-                async with session.get('http://example.com/monitor') as response:
-                    if response.status == 200 and response.content_type == 'application/json':
-                        result = await response.json()
-                        logging.info(f"Monitor result: {result}")
-                        if 'vulnerability' in result:
-                            await send_email("Vulnerability Alert", str(result))
-                    else:
-                        logging.error(f"Unexpected response: {response.status}, content type: {response.content_type}")
+            targets = ["127.0.0.1"]  # Replace with actual target(s)
+            scan_types = ["-sS", "-sU", "-sT", "-sA", "-sW", "-sM", "-sN", "-sO", "-sP", "-sV", "-sC"]
+            results = run_scan(targets, scan_types)
+            if results:
+                save_results_to_file()
+                await send_email("Vulnerability Alert", str(results))
         except Exception as e:
             logging.error(f"Error during monitoring: {e}")
 
