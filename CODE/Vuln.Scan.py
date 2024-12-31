@@ -3,64 +3,18 @@ import logging
 import nmap
 import concurrent.futures
 import re
+import requests
+import atexit  # To handle saving data when the program ends
 from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Vulnerability database (unchanged from original)
-vulnerability_db = {
-    "apache": {
-        "2.4.49": ["CVE-2021-41773", "CVE-2021-42013"],
-        "2.4.48": ["CVE-2021-39275"],
-        "2.4.46": ["CVE-2020-9490", "CVE-2020-11984"]
-    },
-    "nginx": {
-        "1.21.1": ["CVE-2021-23017"],
-        "1.20.1": ["CVE-2021-23017"],
-        "1.19.10": ["CVE-2021-23017"]
-    },
-    "openssh": {
-        "8.4": ["CVE-2021-28041"],
-        "8.3": ["CVE-2020-15778"],
-        "7.9": ["CVE-2018-15473"]
-    },
-    "mysql": {
-        "8.0.25": ["CVE-2021-2307"],
-        "5.7.34": ["CVE-2021-2307"],
-        "5.6.51": ["CVE-2021-2307"]
-    },
-    "postgresql": {
-        "13.3": ["CVE-2021-32027"],
-        "12.7": ["CVE-2021-32027"],
-        "11.12": ["CVE-2021-32027"]
-    },
-    "php": {
-        "7.4.21": ["CVE-2021-21703"],
-        "7.3.28": ["CVE-2021-21703"],
-        "7.2.34": ["CVE-2020-7069"]
-    },
-    "python": {
-        "3.9.5": ["CVE-2021-3177"],
-        "3.8.10": ["CVE-2021-3177"],
-        "3.7.10": ["CVE-2021-3177"]
-    },
-    "java": {
-        "8u291": ["CVE-2021-2161"],
-        "11.0.11": ["CVE-2021-2161"],
-        "16.0.1": ["CVE-2021-2161"]
-    },
-    "nodejs": {
-        "14.17.0": ["CVE-2021-22918"],
-        "12.22.1": ["CVE-2021-22918"],
-        "10.24.1": ["CVE-2021-22918"]
-    },
-    "docker": {
-        "20.10.7": ["CVE-2021-21284"],
-        "19.03.15": ["CVE-2020-15257"],
-        "18.09.9": ["CVE-2019-13139"]
-    }
-}
+# NVD API Configuration
+API_BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+API_KEY = "50191d62-ffce-4f78-9aea-f086524355bc"
+
+scan_results = {}  # Store scan results globally
 
 def validate_targets(targets):
     """Validate the format of target IP addresses or hostnames."""
@@ -69,24 +23,58 @@ def validate_targets(targets):
         if re.match(r"^(\d{1,3}\.){3}\d{1,3}$", target):  # Simple IPv4 validation
             valid_targets.append(target)
         else:
-            logging.warning(f"Invalid target format: {target}")
+            logging.warning(f"Invalid target format: {target}. Please provide a valid IP address.")
     return valid_targets
 
-def check_vulnerabilities_locally(service, version):
-    """Check for vulnerabilities in the local database."""
-    if service in vulnerability_db:
-        if version in vulnerability_db[service]:
-            return vulnerability_db[service][version]
-    return []
+def fetch_vulnerabilities_from_nvd(service, version):
+    """Fetch vulnerabilities from the live NVD API."""
+    try:
+        params = {
+            "keyword": f"{service} {version}",
+            "apiKey": API_KEY
+        }
+        response = requests.get(API_BASE_URL, params=params, timeout=10)
+        response.raise_for_status()
 
-def save_results_to_file(results, filename="scan_results.json"):
-    """Save scan results to a file."""
+        # Extract relevant CVE information
+        vulnerabilities = []
+        if "result" in response.json() and "CVE_Items" in response.json()["result"]:
+            for item in response.json()["result"]["CVE_Items"]:
+                cve_id = item["cve"]["CVE_data_meta"]["ID"]
+                description = item["cve"]["description"]["description_data"][0]["value"]
+                vulnerabilities.append({"cve_id": cve_id, "description": description})
+        return vulnerabilities
+
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 404:
+            logging.info(f"404 Error: No vulnerabilities found for {service} version {version}.")  # Simplified message
+        elif response.status_code == 403:
+            logging.error(f"403 Error: Forbidden access for {service} version {version}. Check your API key or permissions.")
+        else:
+            logging.error(f"HTTP Error {response.status_code}: Unable to fetch vulnerabilities for {service} version {version}.")
+        return []
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Network issue or invalid request for {service} version {version}: {e}.")
+        return []
+    except Exception as e:
+        logging.error(f"Unexpected error while fetching vulnerabilities for {service} version {version}: {e}.")
+        return []
+
+def check_vulnerabilities(service, version):
+    """Check vulnerabilities via the NVD API."""
+    return fetch_vulnerabilities_from_nvd(service, version)
+
+def save_results_to_file(filename="scan_results.json"):
+    """Save scan results to a file when the program ends."""
     try:
         with open(filename, "w") as file:
-            json.dump(results, file, indent=4)
-        logging.info(f"Results saved to {filename}")
+            json.dump(scan_results, file, indent=4)
+        logging.info(f"Results saved to {filename}. You can now review the scan results and vulnerabilities found.")
     except Exception as e:
         logging.error(f"Error saving results to file: {e}")
+
+# Register the function to be called at exit
+atexit.register(save_results_to_file)
 
 def perform_scan(target, scan_args):
     """Perform an Nmap scan on the target."""
@@ -100,7 +88,7 @@ def perform_scan(target, scan_args):
             for port, details in results[proto].items():
                 service = details.get('name', 'unknown')
                 version = details.get('version', 'unknown')
-                vulnerabilities = check_vulnerabilities_locally(service, version)
+                vulnerabilities = check_vulnerabilities(service, version)
                 if vulnerabilities:
                     vulnerabilities_found.append({
                         "port": port,
@@ -114,25 +102,24 @@ def perform_scan(target, scan_args):
             "target": target,
             "scan_args": scan_args,
             "timestamp": datetime.now().isoformat(),
-            "vulnerabilities": vulnerabilities_found if vulnerabilities_found else "None found"
+            "vulnerabilities": vulnerabilities_found if vulnerabilities_found else "No vulnerabilities found"  # Clear message
         }
     except Exception as e:
-        logging.error(f"Error scanning target {target}: {e}")
+        logging.error(f"Error scanning target {target}: {e}. This may be due to an issue with the scan arguments, the network, or the target itself.")
         return {
             "target": target,
             "scan_args": scan_args,
             "timestamp": datetime.now().isoformat(),
-            "error": str(e)
+            "error": f"Scan failed: {e}. Please check the scan arguments, the network, or the target."
         }
 
 def run_scan(targets, scan_types, max_workers=10):
     """Run scans concurrently on a list of targets."""
     validated_targets = validate_targets(targets)
     if not validated_targets:
-        logging.error("No valid targets provided.")
+        logging.error("No valid targets provided. Please check your input.")
         return {}
 
-    results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_target = {
             executor.submit(perform_scan, target, scan_type): f"{target} ({scan_type})"
@@ -145,16 +132,16 @@ def run_scan(targets, scan_types, max_workers=10):
                 result = future.result()
                 target = result.get("target")
                 if target:
-                    results[target] = results.get(target, [])
-                    results[target].append(result)
+                    scan_results[target] = scan_results.get(target, [])
+                    scan_results[target].append(result)
             except Exception as exc:
                 logging.error(f"{target_info} generated an exception: {exc}")
-    return results
+
+    return scan_results
 
 if __name__ == "__main__":
     targets = ["127.0.0.1"]  # Replace with your target(s)
     scan_types = ["-sS", "-sU", "-sT", "-sA", "-sW", "-sM", "-sN", "-sO", "-sP", "-sV", "-sC"]  # Scan types unchanged
     logging.info("Starting vulnerability scan...")
     results = run_scan(targets, scan_types)
-    save_results_to_file(results)
     logging.info("Vulnerability scan completed.")
