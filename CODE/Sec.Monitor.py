@@ -1,12 +1,10 @@
 import asyncio
 import logging
-import os
 import signal
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from configparser import ConfigParser
-from datetime import datetime, timezone
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from aiohttp import ClientSession
 from cryptography.fernet import Fernet
 
