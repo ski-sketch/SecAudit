@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from configparser import ConfigParser
 from datetime import datetime, timezone
 from aiohttp import ClientSession
+from cryptography.fernet import Fernet
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,8 +20,13 @@ email_config = config['EMAIL']
 smtp_server = email_config.get('smtp_server')
 smtp_port = email_config.getint('smtp_port')
 sender_email = email_config.get('email')
-password = os.getenv('EMAIL_PASSWORD')  # Use environment variable for password
 recipient_email = email_config.get('recipient_email', sender_email)  # Allow separate recipient email
+
+# Decrypt the password
+key = email_config.get('key').encode()
+encrypted_password = email_config.get('password').encode()
+cipher_suite = Fernet(key)
+password = cipher_suite.decrypt(encrypted_password).decode()
 
 # Validate email configuration
 if not all([smtp_server, smtp_port, sender_email, password, recipient_email]):
@@ -63,10 +69,13 @@ async def monitor():
         try:
             async with ClientSession() as session:
                 async with session.get('http://example.com/monitor') as response:
-                    result = await response.json()
-                    logging.info(f"Monitor result: {result}")
-                    if 'vulnerability' in result:
-                        await send_email("Vulnerability Alert", str(result))
+                    if response.status == 200 and response.content_type == 'application/json':
+                        result = await response.json()
+                        logging.info(f"Monitor result: {result}")
+                        if 'vulnerability' in result:
+                            await send_email("Vulnerability Alert", str(result))
+                    else:
+                        logging.error(f"Unexpected response: {response.status}, content type: {response.content_type}")
         except Exception as e:
             logging.error(f"Error during monitoring: {e}")
 
