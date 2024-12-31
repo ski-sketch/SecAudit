@@ -3,64 +3,15 @@ import logging
 import nmap
 import concurrent.futures
 import re
+import requests
 from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Vulnerability database (unchanged from original)
-vulnerability_db = {
-    "apache": {
-        "2.4.49": ["CVE-2021-41773", "CVE-2021-42013"],
-        "2.4.48": ["CVE-2021-39275"],
-        "2.4.46": ["CVE-2020-9490", "CVE-2020-11984"]
-    },
-    "nginx": {
-        "1.21.1": ["CVE-2021-23017"],
-        "1.20.1": ["CVE-2021-23017"],
-        "1.19.10": ["CVE-2021-23017"]
-    },
-    "openssh": {
-        "8.4": ["CVE-2021-28041"],
-        "8.3": ["CVE-2020-15778"],
-        "7.9": ["CVE-2018-15473"]
-    },
-    "mysql": {
-        "8.0.25": ["CVE-2021-2307"],
-        "5.7.34": ["CVE-2021-2307"],
-        "5.6.51": ["CVE-2021-2307"]
-    },
-    "postgresql": {
-        "13.3": ["CVE-2021-32027"],
-        "12.7": ["CVE-2021-32027"],
-        "11.12": ["CVE-2021-32027"]
-    },
-    "php": {
-        "7.4.21": ["CVE-2021-21703"],
-        "7.3.28": ["CVE-2021-21703"],
-        "7.2.34": ["CVE-2020-7069"]
-    },
-    "python": {
-        "3.9.5": ["CVE-2021-3177"],
-        "3.8.10": ["CVE-2021-3177"],
-        "3.7.10": ["CVE-2021-3177"]
-    },
-    "java": {
-        "8u291": ["CVE-2021-2161"],
-        "11.0.11": ["CVE-2021-2161"],
-        "16.0.1": ["CVE-2021-2161"]
-    },
-    "nodejs": {
-        "14.17.0": ["CVE-2021-22918"],
-        "12.22.1": ["CVE-2021-22918"],
-        "10.24.1": ["CVE-2021-22918"]
-    },
-    "docker": {
-        "20.10.7": ["CVE-2021-21284"],
-        "19.03.15": ["CVE-2020-15257"],
-        "18.09.9": ["CVE-2019-13139"]
-    }
-}
+# NVD API Configuration
+API_BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/1.0"
+API_KEY = "50191d62-ffce-4f78-9aea-f086524355bc"
 
 def validate_targets(targets):
     """Validate the format of target IP addresses or hostnames."""
@@ -72,12 +23,32 @@ def validate_targets(targets):
             logging.warning(f"Invalid target format: {target}")
     return valid_targets
 
-def check_vulnerabilities_locally(service, version):
-    """Check for vulnerabilities in the local database."""
-    if service in vulnerability_db:
-        if version in vulnerability_db[service]:
-            return vulnerability_db[service][version]
-    return []
+def fetch_vulnerabilities_from_nvd(service, version):
+    """Fetch vulnerabilities from the live NVD API."""
+    try:
+        params = {
+            "keyword": f"{service} {version}",
+            "apiKey": API_KEY
+        }
+        response = requests.get(API_BASE_URL, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extract relevant CVE information
+        vulnerabilities = []
+        if "result" in data and "CVE_Items" in data["result"]:
+            for item in data["result"]["CVE_Items"]:
+                cve_id = item["cve"]["CVE_data_meta"]["ID"]
+                description = item["cve"]["description"]["description_data"][0]["value"]
+                vulnerabilities.append({"cve_id": cve_id, "description": description})
+        return vulnerabilities
+    except Exception as e:
+        logging.error(f"Error fetching vulnerabilities for {service} {version}: {e}")
+        return []
+
+def check_vulnerabilities(service, version):
+    """Check vulnerabilities via the NVD API."""
+    return fetch_vulnerabilities_from_nvd(service, version)
 
 def save_results_to_file(results, filename="scan_results.json"):
     """Save scan results to a file."""
@@ -100,7 +71,7 @@ def perform_scan(target, scan_args):
             for port, details in results[proto].items():
                 service = details.get('name', 'unknown')
                 version = details.get('version', 'unknown')
-                vulnerabilities = check_vulnerabilities_locally(service, version)
+                vulnerabilities = check_vulnerabilities(service, version)
                 if vulnerabilities:
                     vulnerabilities_found.append({
                         "port": port,
