@@ -5,7 +5,10 @@ import concurrent.futures
 import re
 import requests
 import atexit  # To handle saving data when the program ends
+import signal  # To handle termination signals
+import sys
 from datetime import datetime
+from threading import Timer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -15,6 +18,28 @@ API_BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 API_KEY = "50191d62-ffce-4f78-9aea-f086524355bc"
 
 scan_results = {}  # Store scan results globally
+TIMEOUT_LIMIT = 2 * 60  # Timeout after 5 minutes (in seconds)
+
+def save_results_to_file(filename="scan_results.json"):
+    """Save scan results to a file when the program ends."""
+    try:
+        with open(filename, "w") as file:
+            json.dump(scan_results, file, indent=4)
+        logging.info(f"Results saved to {filename}. You can now review the scan results and vulnerabilities found.")
+    except Exception as e:
+        logging.error(f"Error saving results to file: {e}")
+
+# Register the function to be called at exit
+atexit.register(save_results_to_file)
+
+def signal_handler(sig, frame):
+    """Handles termination signals to ensure results are saved when the program is stopped."""
+    logging.info("Program interrupted, saving results...")
+    save_results_to_file()
+    sys.exit(0)
+
+# Register the signal handler for graceful termination
+signal.signal(signal.SIGINT, signal_handler)
 
 def validate_targets(targets):
     """Validate the format of target IP addresses or hostnames."""
@@ -63,18 +88,6 @@ def fetch_vulnerabilities_from_nvd(service, version):
 def check_vulnerabilities(service, version):
     """Check vulnerabilities via the NVD API."""
     return fetch_vulnerabilities_from_nvd(service, version)
-
-def save_results_to_file(filename="scan_results.json"):
-    """Save scan results to a file when the program ends."""
-    try:
-        with open(filename, "w") as file:
-            json.dump(scan_results, file, indent=4)
-        logging.info(f"Results saved to {filename}. You can now review the scan results and vulnerabilities found.")
-    except Exception as e:
-        logging.error(f"Error saving results to file: {e}")
-
-# Register the function to be called at exit
-atexit.register(save_results_to_file)
 
 def perform_scan(target, scan_args):
     """Perform an Nmap scan on the target."""
@@ -139,7 +152,19 @@ def run_scan(targets, scan_types, max_workers=10):
 
     return scan_results
 
+def start_timeout_timer():
+    """Start a timeout timer to automatically stop the program after 5 minutes."""
+    timer = Timer(TIMEOUT_LIMIT, timeout_callback)
+    timer.start()
+
+def timeout_callback():
+    """Callback function when the timeout is reached."""
+    logging.error("Timeout reached. The scan process will stop and results will be saved.")
+    save_results_to_file()
+    sys.exit(0)
+
 if __name__ == "__main__":
+    start_timeout_timer()  # Start the 5-minute timeout
     targets = ["127.0.0.1"]  # Replace with your target(s)
     scan_types = ["-sS", "-sU", "-sT", "-sA", "-sW", "-sM", "-sN", "-sO", "-sP", "-sV", "-sC"]  # Scan types unchanged
     logging.info("Starting vulnerability scan...")
