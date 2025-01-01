@@ -1,6 +1,6 @@
 # SecAudit
 
-SecAudit is a comprehensive security audit suite that includes tools for vulnerability scanning, exploitation, monitoring, patch management, and log analysis. Designed to help identify and manage vulnerabilities across systems, it supports Windows and provides solutions for proactive security auditing and remediation.
+SecAudit is a comprehensive security audit suite that includes tools for vulnerability scanning, exploitation, monitoring, and log analysis. Designed to help identify and manage vulnerabilities across systems, it supports Windows and provides solutions for proactive security auditing and remediation.
 
 ## Installation and Setup
 
