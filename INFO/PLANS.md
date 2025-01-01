@@ -8,9 +8,10 @@
 | Tasks                  |
 |------------------------|
 | Vuln.Scan  ✅           |
-| SecPlanner ✅           |
-| Vuln.Exploit  ✅        |
-| Patch.Manager  ✅       |
+| Web.Monitor ✅          |
+| Vuln.Exploit  ❌        |
+| Patch.Manager  ❌       |
 | Log.Analyzer  ❌        |
 | Security.Gen.Report  ❌ |
 | Crypto.Audit  ❌        |
+| Vuln.Monitor  ❌        |
