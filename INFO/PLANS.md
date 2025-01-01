@@ -2,8 +2,8 @@
 
 > [!TIP]
 > Key:
-> - ❌ = Might be done
-> - ✅ = Will be done
+> - ❌ = Not Done Yet
+> - ✅ = Done
 
 | Tasks                  |
 |------------------------|
