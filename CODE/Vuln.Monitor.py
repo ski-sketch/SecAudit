@@ -8,8 +8,27 @@ from email.mime.text import MIMEText
 from aiohttp import ClientSession
 from cryptography.fernet import Fernet
 from Vuln.Scan import run_scan, save_results_to_file  # Importing functions from Vuln.Scan
+import colorlog
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+handler = colorlog.StreamHandler()
+handler.setFormatter(colorlog.ColoredFormatter(
+    "%(log_color)s%(levelname)s: %(message_log_color)s%(message)s",
+    log_colors={
+        'INFO': 'green',
+        'ERROR': 'red',
+    },
+    secondary_log_colors={
+        'message': {
+            'INFO': 'blue',
+            'ERROR': 'blue',
+        }
+    }
+))
+
+logger = colorlog.getLogger('vuln-monitor')
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # Load configuration
 config = ConfigParser()
@@ -29,14 +48,14 @@ password = cipher_suite.decrypt(encrypted_password).decode()
 
 # Validate email configuration
 if not all([smtp_server, smtp_port, sender_email, password, recipient_email]):
-    logging.error("Invalid email configuration. Please check email_config.ini and environment variables.")
+    logger.error("Invalid email configuration. Please check email_config.ini and environment variables.")
     exit(1)
 
 # Graceful shutdown
 shutdown_event = asyncio.Event()
 
 def shutdown_handler(signum, frame):
-    logging.info("Shutdown signal received.")
+    logger.info("Shutdown signal received.")
     shutdown_event.set()
 
 signal.signal(signal.SIGINT, shutdown_handler)
@@ -55,13 +74,13 @@ async def send_email(subject, body):
                 server.starttls()
                 server.login(sender_email, password)
                 server.sendmail(sender_email, recipient_email, msg.as_string())
-            logging.info("Email sent successfully.")
+            logger.info("Email sent successfully.")
             return
         except Exception as e:
-            logging.error(f"Error sending email: {e}")
+            logger.error(f"Error sending email: {e}")
             await asyncio.sleep(2 ** attempt)  # Exponential backoff
 
-    logging.error("Failed to send email after multiple attempts.")
+    logger.error("Failed to send email after multiple attempts.")
 
 async def monitor():
     while not shutdown_event.is_set():
@@ -73,7 +92,7 @@ async def monitor():
                 save_results_to_file()
                 await send_email("Vulnerability Alert", str(results))
         except Exception as e:
-            logging.error(f"Error during monitoring: {e}")
+            logger.error(f"Error during monitoring: {e}")
 
         await asyncio.sleep(3600)  # Configurable interval
 

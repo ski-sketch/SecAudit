@@ -9,9 +9,27 @@ import signal  # To handle termination signals
 import sys
 from datetime import datetime
 from threading import Timer
+import colorlog
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+handler = colorlog.StreamHandler()
+handler.setFormatter(colorlog.ColoredFormatter(
+    "%(log_color)s%(levelname)s: %(message_log_color)s%(message)s",
+    log_colors={
+        'INFO': 'green',
+        'ERROR': 'red',
+    },
+    secondary_log_colors={
+        'message': {
+            'INFO': 'blue',
+            'ERROR': 'blue',
+        }
+    }
+))
+
+logger = colorlog.getLogger('vuln-scan')
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # NVD API Configuration
 API_BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -25,16 +43,16 @@ def save_results_to_file(filename="scan_results.json"):
     try:
         with open(filename, "w") as file:
             json.dump(scan_results, file, indent=4)
-        logging.info(f"Results saved to {filename}. You can now review the scan results and vulnerabilities found.")
+        logger.info(f"Results saved to {filename}. You can now review the scan results and vulnerabilities found.")
     except Exception as e:
-        logging.error(f"Error saving results to file: {e}")
+        logger.error(f"Error saving results to file: {e}")
 
 # Register the function to be called at exit
 atexit.register(save_results_to_file)
 
 def signal_handler(sig, frame):
     """Handles termination signals to ensure results are saved when the program is stopped."""
-    logging.info("Program interrupted, saving results...")
+    logger.info("Program interrupted, saving results...")
     save_results_to_file()
     sys.exit(0)
 
@@ -48,7 +66,7 @@ def validate_targets(targets):
         if re.match(r"^(\d{1,3}\.){3}\d{1,3}$", target):  # Simple IPv4 validation
             valid_targets.append(target)
         else:
-            logging.warning(f"Invalid target format: {target}. Please provide a valid IP address.")
+            logger.warning(f"Invalid target format: {target}. Please provide a valid IP address.")
     return valid_targets
 
 def fetch_vulnerabilities_from_nvd(service, version):
@@ -72,17 +90,17 @@ def fetch_vulnerabilities_from_nvd(service, version):
 
     except requests.exceptions.HTTPError as e:
         if response.status_code == 404:
-            logging.info(f"404 Error: No vulnerabilities found for {service} version {version}.")  # Simplified message
+            logger.info(f"404 Error: No vulnerabilities found for {service} version {version}.")  # Simplified message
         elif response.status_code == 403:
-            logging.error(f"403 Error: Forbidden access for {service} version {version}. Check your API key or permissions.")
+            logger.error(f"403 Error: Forbidden access for {service} version {version}. Check your API key or permissions.")
         else:
-            logging.error(f"HTTP Error {response.status_code}: Unable to fetch vulnerabilities for {service} version {version}.")
+            logger.error(f"HTTP Error {response.status_code}: Unable to fetch vulnerabilities for {service} version {version}.")
         return []
     except requests.exceptions.RequestException as e:
-        logging.error(f"Network issue or invalid request for {service} version {version}: {e}.")
+        logger.error(f"Network issue or invalid request for {service} version {version}: {e}.")
         return []
     except Exception as e:
-        logging.error(f"Unexpected error while fetching vulnerabilities for {service} version {version}: {e}.")
+        logger.error(f"Unexpected error while fetching vulnerabilities for {service} version {version}: {e}.")
         return []
 
 def check_vulnerabilities(service, version):
@@ -118,7 +136,7 @@ def perform_scan(target, scan_args):
             "vulnerabilities": vulnerabilities_found if vulnerabilities_found else "No vulnerabilities found"  # Clear message
         }
     except Exception as e:
-        logging.error(f"Error scanning target {target}: {e}. This may be due to an issue with the scan arguments, the network, or the target itself.")
+        logger.error(f"Error scanning target {target}: {e}. This may be due to an issue with the scan arguments, the network, or the target itself.")
         return {
             "target": target,
             "scan_args": scan_args,
@@ -130,7 +148,7 @@ def run_scan(targets, scan_types, max_workers=10):
     """Run scans concurrently on a list of targets."""
     validated_targets = validate_targets(targets)
     if not validated_targets:
-        logging.error("No valid targets provided. Please check your input.")
+        logger.error("No valid targets provided. Please check your input.")
         return {}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -148,7 +166,7 @@ def run_scan(targets, scan_types, max_workers=10):
                     scan_results[target] = scan_results.get(target, [])
                     scan_results[target].append(result)
             except Exception as exc:
-                logging.error(f"{target_info} generated an exception: {exc}")
+                logger.error(f"{target_info} generated an exception: {exc}")
 
     return scan_results
 
@@ -159,7 +177,7 @@ def start_timeout_timer():
 
 def timeout_callback():
     """Callback function when the timeout is reached."""
-    logging.error("Timeout reached. The scan process will stop and results will be saved.")
+    logger.error("Timeout reached. The scan process will stop and results will be saved.")
     save_results_to_file()
     sys.exit(0)
 
@@ -167,6 +185,6 @@ if __name__ == "__main__":
     start_timeout_timer()  # Start the 5-minute timeout
     targets = ["127.0.0.1"]  # Replace with your target(s)
     scan_types = ["-sS", "-sU", "-sT", "-sA", "-sW", "-sM", "-sN", "-sO", "-sP", "-sV", "-sC"]  # Scan types unchanged
-    logging.info("Starting vulnerability scan...")
+    logger.info("Starting vulnerability scan...")
     results = run_scan(targets, scan_types)
-    logging.info("Vulnerability scan completed.")
+    logger.info("Vulnerability scan completed.")
